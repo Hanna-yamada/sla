@@ -1,0 +1,59 @@
+class Cliente:
+    def __init__(self):
+        self.nome = ""
+        self.dt_nasc = ""
+        self.cpf = ""
+
+    def demonstrar(self):
+        print(f"Cliente: {self.nome}")
+        print(f"Data de nascimento: {self.dt_nasc}")
+        print(f"CPF: {self.cpf[:3]}...")
+
+
+class Conta:
+    def __init__(self):
+        self.num_cont = 1
+        self.num_titular = 1
+        self.saldo_dispo = 0.0
+
+    def sacar(self):
+        valor = float(input("Digite o valor do saque: "))
+        if valor > self.saldo_dispo:
+            print("Saldo inválido, operação não efetuada")
+        else:
+            self.saldo_dispo -= valor
+            print("Saque realizado com sucesso")
+
+    def depositar(self):
+        dep = float(input("Digite o valor do depósito: "))
+        self.saldo_dispo += dep
+        print("Depósito realizado com sucesso")
+
+    def transferir(self, destino):
+        tf = float(input("Digite o valor da transferência: "))
+        if tf > self.saldo_dispo:
+            print("Saldo inválido, operação não efetuada")
+        else:
+            self.saldo_dispo -= tf
+            destino.saldo_dispo += tf
+            print("Transferência realizada com sucesso")
+
+
+# Teste
+cliente = Cliente()
+cliente.nome = "Julia"
+cliente.dt_nasc = "30/06/2008"
+cliente.cpf = "013.337.549-81"
+
+conta1 = Conta()
+conta1.saldo_dispo = 612.22
+
+conta2 = Conta()
+conta2.saldo_dispo = 322.22
+
+conta1.sacar()
+conta1.depositar()
+conta1.transferir(conta2)
+
+print("Saldo conta1:", conta1.saldo_dispo)
+print("Saldo conta2:", conta2.saldo_dispo)
