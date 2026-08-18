@@ -434,7 +434,7 @@ class TelaJogo(arcade.View):
         for x in range(32, LARGURA + 32, 64):
             chao = Bloco(x, y=30)
             self.sprite_blocos.append(chao)
-        posicoes_plataforma = [(300, 250), (550, 250)]
+        posicoes_plataforma = [(300, 250), (550, 250),(150,350), (400,430), (650,350)]
         for x, y in posicoes_plataforma:
             plataforma = Bloco(x, y)
             self.sprite_blocos.append(plataforma)
@@ -499,7 +499,7 @@ class TelaJogo(arcade.View):
             self.tempo_mensagem = 1.5
             while True:
                 inimigo.center_x = random.randint(50, LARGURA - 50)
-                inimigo.center_y = random.randint(50, 500)
+                inimigo.center_y = random.randint(50, 100)
 
                 if arcade.get_distance_between_sprites(inimigo, self.jogador) >= 250:
                     break
