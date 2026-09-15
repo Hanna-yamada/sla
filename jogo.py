@@ -1,3 +1,11 @@
+from peewee import *
+db = SqliteDatabase("pontuacao.db")
+
+
+
+class BaseModel(Model):
+    class Meta:
+        database = db
 
 import arcade
 import random
@@ -14,19 +22,19 @@ GRAVIDADE = 0.5
 
 def confBordas(objeto, rebater=False):
     # --- Parede Direita ---
-    if objeto.right > LARGURA:
+    if objeto.right >= LARGURA:
         objeto.right = LARGURA
         if rebater:
             objeto.change_x *= -1
 
     # --- Parede Esquerda ---
-    if objeto.left < 0:
+    if objeto.left <= 0:
         objeto.left = 0
         if rebater:
             objeto.change_x *= -1
 
     # --- Teto ---
-    if objeto.top > ALTURA:
+    if objeto.top >= ALTURA:
         objeto.top = ALTURA
         if rebater:
             objeto.change_y *= -1
@@ -34,7 +42,7 @@ def confBordas(objeto, rebater=False):
             objeto.change_y = 0
 
     # --- Chão ---
-    if objeto.bottom < 0:
+    if objeto.bottom <= 0:
         objeto.bottom = 0
         if rebater:
             objeto.change_y *= -1
@@ -44,34 +52,66 @@ def confBordas(objeto, rebater=False):
 #classe player
 class Player(arcade.Sprite):
     def __init__(self):
-        super().__init__("bia.png", scale = 1)
-       
-        self.texture_direita_a = arcade.load_texture("bia_direita2.png")
-        self.texture_parado = arcade.load_texture("bia.png")
-        self.texture_esquerda_e = arcade.load_texture("bia_esquerda2.png")
+        sheet = arcade.load_spritesheet("AnaGabriele.png")
+        quadros = sheet.get_texture_grid(
+            size=(332, 397),
+            columns=4,
+            count=8,
+        )
+
+        quadros_direita = quadros[:4]
+        quadros_esquerda = [frame.flip_left_right() for frame in quadros_direita]
+
+        super().__init__(scale=0.2)
+
         self.gravidade = GRAVIDADE
 
-        
+        self.texture_parado_d = quadros_direita[0]
+        self.texture_parado_e = quadros_esquerda[0]
+        self.texture_parado = self.texture_parado_d
+
+        self.passos_direita = quadros_direita[1:]
+        self.passos_esquerda = quadros_esquerda[1:]
+
+        self.texture_pulo_d = quadros_direita[-1]
+        self.texture_pulo_e = quadros_esquerda[-1]
+
+        self.quadro_atual: int = 0
+        self.tempo_animacao: float = 0.0
+        self.virado_para: str = "Direita"
+        self.texture = self.texture_parado_d
+
     def update(self, delta_time):
         if self.change_x > 0:
-            self.texture = self.texture_direita_a
-
+            self.virado_para = "Direita"
         elif self.change_x < 0:
-            self.texture = self.texture_esquerda_e
+            self.virado_para = "Esquerda"
 
-        
+        confBordas(self, rebater=False)
 
+        if self.change_y != 0:
+            if self.virado_para == "Direita":
+                self.texture = self.texture_pulo_d
+            else:
+                self.texture = self.texture_pulo_e
+            return
 
-        confBordas(self, rebater =False)
-      
-
-
-
+        if self.change_x != 0:
+            frames = self.passos_direita if self.virado_para == "Direita" else self.passos_esquerda
+            self.tempo_animacao += delta_time
+            if self.tempo_animacao >= 0.12:
+                self.tempo_animacao = 0.0
+                self.quadro_atual = (self.quadro_atual + 1) % len(frames)
+            self.texture = frames[self.quadro_atual]
+            self.texture_parado = self.texture_parado_d if self.virado_para == "Direita" else self.texture_parado_e
+        else:
+            self.texture_parado = self.texture_parado_d if self.virado_para == "Direita" else self.texture_parado_e
+            self.texture = self.texture_parado
 
 
 class Moeda(arcade.Sprite):
     def __init__(self):
-        super().__init__("moeda (1).png",scale = 0.3)
+        super().__init__("moeda.png",scale = 0.21)
 
     def update(self,delta_time):
        
@@ -79,7 +119,7 @@ class Moeda(arcade.Sprite):
 
 class MoedaEspecial(arcade.Sprite):
     def __init__(self):
-        super().__init__("moeda_especial.png", scale = 0.4)
+        super().__init__("moeda_especial.png", scale = 0.35)
 
   
     def update(self,delta_time):
@@ -92,12 +132,12 @@ class MoedaEspecial(arcade.Sprite):
         
 class Inimigo_Especial(arcade.Sprite):
     def __init__(self, jogador):
-        super().__init__("alien.png", scale = 0.8)
+        super().__init__("alien.png", scale = 0.46)
         self.jogador = jogador
         
         self.texture_direita_a = arcade.load_texture("alien.png")       
         self.texture_esquerda_e = arcade.load_texture("alien2.png")
-        self.velocidade = 3
+        self.velocidade = 1.5
 
     def update(self,delta_time):
         dx = self.jogador.center_x - self.center_x
@@ -126,11 +166,11 @@ class Inimigo_Especial(arcade.Sprite):
 #class inimigo
 class Inimigo(arcade.Sprite):
     def __init__(self):
-        super().__init__("prof.png", scale = 1)
+        super().__init__("prof.png", scale = 0.7)
         
         self.texture_direita_a = arcade.load_texture("prof_direita2.png")       
         self.texture_esquerda_e = arcade.load_texture("prof_esquerda2.png")
-        
+
     
 
         
@@ -139,20 +179,23 @@ class Inimigo(arcade.Sprite):
     def update(self,delta_time):
         self.center_x += self.change_x
         self.center_y += self.change_y
-        self.change_y -= 0.5
 
         if self.change_x > 0:
             self.texture = self.texture_direita_a
-        if self.change_x < 0:
+        elif self.change_x < 0:
             self.texture = self.texture_esquerda_e
 
-        confBordas(self, rebater = False)
-        if self.right >= LARGURA or self.left <= 0:
-            self.change_x *= -1
+        confBordas(self, rebater=True)
 
 class Bloco(arcade.Sprite):
     def __init__(self, x: float, y: float):
         super().__init__("bloco.png", scale=1)
+        self.center_x = x
+        self.center_y = y
+
+class BlocoV(arcade.Sprite):
+    def __init__(self, x: float, y: float):
+        super().__init__("blocoV.png", scale=1)
         self.center_x = x
         self.center_y = y
 
@@ -304,8 +347,8 @@ class TelaMenu(arcade.View):
         arcade.draw_text(f"MENU",320 ,255,
         arcade.color.BLACK, 40)
         arcade.draw_text(f"CLIQUE J PARA JOGAR",320 ,220, arcade.color.BLACK, 12)
-        arcade.draw_text(f"CLIQUE S PARA SOBRE O JOGO",320 ,170, arcade.color.BLACK, 10)
-        arcade.draw_text(f"CLIQUE I PARA INSTRUÇÃO",325 ,120, arcade.color.BLACK, 11)
+        arcade.draw_text(f"CLIQUE S PARA SOBRE O JOGO",305 ,170, arcade.color.BLACK, 10)
+        arcade.draw_text(f"CLIQUE I PARA INSTRUÇÃO",305 ,120, arcade.color.BLACK, 11)
         arcade.draw_text(f"X ESC",710 ,570, arcade.color.RED, 20)
 
 
@@ -362,6 +405,23 @@ class TelaGanhou(arcade.View):
     
 
 class TelaJogo(arcade.View):
+    def _reposicionar_sprite_seguro(self, sprite, distancia_minima=250, margem=40):
+        for _ in range(200):
+            x = random.randint(margem, LARGURA - margem)
+            y = random.randint(50, ALTURA - 150)
+            sprite.center_x = x
+            sprite.center_y = y
+
+            if (
+                arcade.get_distance_between_sprites(sprite, self.jogador) >= distancia_minima
+                and not arcade.check_for_collision_with_list(sprite, self.sprite_blocos)
+            ):
+                return True
+
+        sprite.center_x = 100
+        sprite.center_y = 150
+        return False
+
     def __init__(self):
         super().__init__()
         arcade.set_background_color(arcade.color.WHITE)
@@ -371,7 +431,7 @@ class TelaJogo(arcade.View):
         self.tempo = 0
         self.mensagem = ""
         self.tempo_mensagem = 0
-        self.velocidade_ini = 2
+        self.velocidade_ini = 1.5
         self.cenario_sprite = arcade.Sprite("tela_jogo.jpeg") 
         self.cenario_sprite.width = LARGURA
         self.cenario_sprite.height = ALTURA
@@ -380,26 +440,42 @@ class TelaJogo(arcade.View):
         self.sprite_cenario = arcade.SpriteList()
         self.sprite_cenario.append(self.cenario_sprite)
         
+        # Criar blocos PRIMEIRO
+        self.sprite_blocos = arcade.SpriteList()
 
+        for x in range(32, LARGURA + 32, 64):
+            chao = Bloco(x, y=30)
+            self.sprite_blocos.append(chao)
+        posicoes_plataforma = [(300, 250), (500, 250), (100, 400), (700, 400)]
+        for x, y in posicoes_plataforma:
+            plataforma = BlocoV(x, y)
+            self.sprite_blocos.append(plataforma)
 
-
+        # Agora criar jogador
         self.jogador = Player()
         self.jogador.center_x = 400
-        self.jogador.center_y = 0
+        self.jogador.center_y = 150
         self.sprite_jogador = arcade.SpriteList()
         self.sprite_jogador.append(self.jogador)
-
+        
+        # Criar moedas garantindo que não nasçam sobre blocos
         self.sprite_moedas = arcade.SpriteList()
         
         for i in range(25):
-            self.moeda = Moeda()
-            self.moeda.center_x = random.randint(50, LARGURA - 50)
-            self.moeda.center_y = random.randint(50, ALTURA - 50)
-            self.sprite_moedas.append(self.moeda)
+            moeda_valida = False
+            while not moeda_valida:
+                self.moeda = Moeda()
+                self.moeda.center_x = random.randint(50, LARGURA - 50)
+                self.moeda.center_y = random.randint(50, ALTURA - 50)
+                
+                # Verifica se colidiu com algum bloco
+                if not arcade.check_for_collision_with_list(self.moeda, self.sprite_blocos):
+                    moeda_valida = True
+                    self.sprite_moedas.append(self.moeda)
         print(len(self.sprite_moedas))
 
         self.inimigo = Inimigo()
-        self.inimigo.center_x = 0
+        self.inimigo.center_x = 20
         self.inimigo.center_y = 154
         self.inimigo.change_x = self.velocidade_ini
         self.inimigo.change_y = self.velocidade_ini
@@ -418,49 +494,45 @@ class TelaJogo(arcade.View):
         
 
         self.sprite_moeda_especial = arcade.SpriteList()
-        self.moeda_especial = MoedaEspecial()
-        self.moeda_especial.center_x = random.randint(100, LARGURA - 100)
-        self.moeda_especial.center_y = random.randint(100, ALTURA - 100)
+        
+        # Criar moeda especial garantindo que não nasça sobre blocos
+        moeda_especial_valida = False
+        while not moeda_especial_valida:
+            self.moeda_especial = MoedaEspecial()
+            self.moeda_especial.center_x = random.randint(100, LARGURA - 100)
+            self.moeda_especial.center_y = random.randint(100, ALTURA - 100)
+            
+            # Verifica se colidiu com algum bloco
+            if not arcade.check_for_collision_with_list(self.moeda_especial, self.sprite_blocos):
+                moeda_especial_valida = True
+        
         self.moeda_especial.change_x = self.velocidade
         self.moeda_especial.change_y = self.velocidade
         
-
         self.sprite_moeda_especial.append(self.moeda_especial)
-
-        self.sprite_blocos = arcade.SpriteList()
-
-
-
-        for x in range(32, LARGURA + 32, 64):
-            chao = Bloco(x, y=30)
-            self.sprite_blocos.append(chao)
-        posicoes_plataforma = [(300, 250), (550, 250),(150,350), (400,430), (650,350)]
-        for x, y in posicoes_plataforma:
-            plataforma = Bloco(x, y)
-            self.sprite_blocos.append(plataforma)
 
         self.engine_fisica  = arcade.PhysicsEnginePlatformer(
             player_sprite=self.jogador,
             walls=self.sprite_blocos,
             gravity_constant=GRAVIDADE
         )
+
         self.engine_fisica_inimigo  = arcade.PhysicsEnginePlatformer(
             player_sprite=self.inimigo,
             walls=self.sprite_blocos,
             gravity_constant=GRAVIDADE
-         )
-
+        )
+       
        
     def on_draw(self):
         self.clear()
         self.sprite_cenario.draw()
-        
-        
+        self.sprite_blocos.draw()
+
         self.sprite_inimigo.draw()
         self.sprite_moedas.draw()
         self.sprite_moeda_especial.draw()
         self.sprite_jogador.draw()
-        self.sprite_blocos.draw()
         self.sprite_inimigo_especial.draw()
         arcade.draw_text(f"Pontos Coletados: {self.pontuacao}", 10, 570,arcade.color.BLACK, 14)
         arcade.draw_text(f"Tempo: {self.tempo:.1f}s",10,545,arcade.color.BLACK,14)
@@ -477,6 +549,7 @@ class TelaJogo(arcade.View):
     def on_update(self,delta_time):
         self.engine_fisica.update()
         self.engine_fisica_inimigo.update()
+        
         self.sprite_jogador.update(delta_time)
         self.sprite_moedas.update(delta_time)
         self.sprite_inimigo.update(delta_time)
@@ -491,31 +564,55 @@ class TelaJogo(arcade.View):
         moeda_especial_colidida = arcade.check_for_collision_with_list(self.jogador,self.sprite_moeda_especial)
         npc_normal = arcade.check_for_collision_with_list(self.jogador, self.sprite_inimigo)
         npc_especial = arcade.check_for_collision_with_list(self.jogador, self.sprite_inimigo_especial)
+        moedas_direc = arcade.check_for_collision_with_list(self.moeda_especial,self.sprite_blocos)
+
 
         for inimigo in npc_normal:
             self.pontuacao -= 1
             print("Colidiu com o professor!")
             self.mensagem = "TOCOU NO HOMEN PERDEU 1 PONTO!"
             self.tempo_mensagem = 1.5
-            while True:
-                inimigo.center_x = random.randint(50, LARGURA - 50)
-                inimigo.center_y = random.randint(50, 100)
-
-                if arcade.get_distance_between_sprites(inimigo, self.jogador) >= 250:
-                    break
+            self._reposicionar_sprite_seguro(inimigo)
 
         for inimigo_especial in npc_especial:
-                    self.pontuacao -= 1
-                    print("Colidiu com o alien!")
-                    
-                    self.mensagem = "TOCOU NO ET PERDEU 1 PONTO!"
-                    self.tempo_mensagem = 1.5
-                    while True:
-                        inimigo_especial.center_x = random.randint(50, LARGURA - 50)
-                        inimigo_especial.center_y = random.randint(50, ALTURA - 50)
-        
-                        if arcade.get_distance_between_sprites(inimigo_especial, self.jogador) >= 250:
-                            break
+            self.pontuacao -= 1
+            print("Colidiu com o alien!")
+            
+            self.mensagem = "TOCOU NO ET PERDEU 1 PONTO!"
+            self.tempo_mensagem = 1.5
+            self._reposicionar_sprite_seguro(inimigo_especial, distancia_minima=220)
+
+        for bloco in moedas_direc:
+            print("moeda colidiu")
+            # Calcula penetração em cada lado do bloco
+            penetracao_esquerda = self.moeda_especial.right - bloco.left
+            penetracao_direita = bloco.right - self.moeda_especial.left
+            penetracao_topo = bloco.top - self.moeda_especial.bottom
+            penetracao_fundo = self.moeda_especial.top - bloco.bottom
+            
+            # Encontra o lado com menor penetração (lado de colisão)
+            min_penetracao = min(penetracao_esquerda, penetracao_direita, penetracao_topo, penetracao_fundo)
+            
+            # Rebate baseado em qual lado colidiu E reposiciona
+            if min_penetracao == penetracao_esquerda:
+                # Colisão na esquerda do bloco
+                self.moeda_especial.right = bloco.left - 2
+                self.moeda_especial.change_x *= -1
+            elif min_penetracao == penetracao_direita:
+                # Colisão na direita do bloco
+                self.moeda_especial.left = bloco.right + 2
+                self.moeda_especial.change_x *= -1
+            elif min_penetracao == penetracao_topo:
+                # Colisão no topo do bloco
+                self.moeda_especial.bottom = bloco.top + 2
+                self.moeda_especial.change_y *= -1
+            else:
+                # Colisão no fundo do bloco
+                self.moeda_especial.top = bloco.bottom - 2
+                self.moeda_especial.change_y *= -1
+                                
+                
+                               
 
         for moeda in moedas_colididas:
             moeda.remove_from_sprite_lists()
@@ -544,11 +641,11 @@ class TelaJogo(arcade.View):
         
 
     def on_key_press(self, key, modifiers):
-        if key == arcade.key.D:
+        if key == arcade.key.D or key == arcade.key.RIGHT:
             self.jogador.change_x = self.velocidade
-        if key == arcade.key.A:
+        if key == arcade.key.A or key == arcade.key.LEFT:
             self.jogador.change_x = -self.velocidade
-        if key == arcade.key.W:
+        if key == arcade.key.W or  key == arcade.key.UP:
             if self.engine_fisica.can_jump(): 
                 self.jogador.change_y = 16
 
@@ -558,11 +655,9 @@ class TelaJogo(arcade.View):
 
 
     def on_key_release(self, key, modifiers):
-        if key == arcade.key.A or key == arcade.key.D:
+        if key == arcade.key.A or key == arcade.key.D or key == arcade.key.RIGHT or key == arcade.key.LEFT:
             self.jogador.change_x = 0
             self.jogador.texture = self.jogador.texture_parado
-        
-    
 
 
 
